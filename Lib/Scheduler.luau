@@ -88,19 +88,35 @@ local function invoke(system: System, ...)
 	end
 end
 
-function Scheduler:run(world, dt)
-	for _, system in ipairs(self._systems) do
-		local node = self._systemState[system]
+function Scheduler:update(world: any, dt: number)
+	for _, node in self._updateSystems do
+		local state = self._systemState[node.system]
 
-		Runtime:start(node, function()
-			if not node.enabled then
-				return
-			end
-			node.executionCount += 1
-			node.lastExecution = os.clock()
+		if not state.enabled then
+			continue
+		end
+
+		state.executionCount += 1
+		state.lastExecution = os.clock()
 
 			invoke(system, world, dt)
 		end)
+	end
+end
+
+function Scheduler:disable(system: System)
+	local state = self._systemState[system]
+
+	if state then
+		state.enabled = false
+	end
+end
+
+function Scheduler:enable(system: System)
+	local state = self._systemState[system]
+
+	if state then
+		state.enabled = true
 	end
 end
 
