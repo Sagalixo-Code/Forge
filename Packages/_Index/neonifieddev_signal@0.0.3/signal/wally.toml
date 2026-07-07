@@ -1,0 +1,8 @@
+[package]
+name = "neonifieddev/signal"
+description = "signal"
+version = "0.0.3"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
