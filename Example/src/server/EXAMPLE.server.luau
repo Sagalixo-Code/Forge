@@ -19,21 +19,7 @@ local World = ECS.new()
 local start = os.clock()
 
 World:addSystems(Systems)
-
-for i = 1, 100 do
-	local e = World:spawn()
-
-	World:set(e, Components.Health, 100)
-	World:set(e, Components.Position, Vector3.zero)
-	World:set(e, Components.Velocity, Vector3.one)
-
-	World:onChange(Components.Health, function(entity, componentName, oldValue, newValue)
-		print("Entity", entity, "Health changed from", oldValue, "to", newValue)
-	end)
-
-	local currentHealth = World:get(e, Components.Health)
-	World:set(e, Components.Health, currentHealth - 10)
-end
+World:startSystems()
 
 for i = 1, 200000 do
 	local e = World:spawn()
@@ -45,8 +31,6 @@ for i = 1, 200000 do
 	local currentHealth = World:get(e, Components.Health)
 	World:set(e, Components.Health, currentHealth - 10)
 end
-
-World:startSystems()
 
 RunService.Heartbeat:Connect(function(dt)
 	local start = os.clock()
