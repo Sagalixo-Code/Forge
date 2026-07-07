@@ -74,7 +74,7 @@ function Scheduler:enable(system)
 		return
 	end
 
-	self._systemState[system].enabled = false
+	state.enabled = true
 end
 
 local function invoke(system: System, ...)

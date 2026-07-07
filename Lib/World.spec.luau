@@ -1,5 +1,3 @@
---!strict
-
 local World = require(script.Parent.World)
 
 return function()
