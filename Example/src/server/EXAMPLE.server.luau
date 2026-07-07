@@ -11,24 +11,36 @@ local Components = {
 	Velocity = 3,
 }
 
+local frames = 0
+local total = 0
+
 local World = ECS.new()
 
 local start = os.clock()
 
 World:addSystems(Systems)
 
-for i = 1, 10000 do
+for i = 1, 100 do
 	local e = World:spawn()
 
 	World:set(e, Components.Health, 100)
 	World:set(e, Components.Position, Vector3.zero)
 	World:set(e, Components.Velocity, Vector3.one)
 
-	World:onChange(Components.Position, function(entity, componentName, oldValue, newValue)
-		if componentName == Components.Health then
-			print("Entity", entity, "Health changed from", oldValue, "to", newValue)
-		end
+	World:onChange(Components.Health, function(entity, componentName, oldValue, newValue)
+		print("Entity", entity, "Health changed from", oldValue, "to", newValue)
 	end)
+
+	local currentHealth = World:get(e, Components.Health)
+	World:set(e, Components.Health, currentHealth - 10)
+end
+
+for i = 1, 200000 do
+	local e = World:spawn()
+
+	World:set(e, Components.Health, 100)
+	World:set(e, Components.Position, Vector3.zero)
+	World:set(e, Components.Velocity, Vector3.one)
 
 	local currentHealth = World:get(e, Components.Health)
 	World:set(e, Components.Health, currentHealth - 10)
@@ -37,7 +49,19 @@ end
 World:startSystems()
 
 RunService.Heartbeat:Connect(function(dt)
+	local start = os.clock()
+
 	World:update(dt)
+
+	total += os.clock() - start
+	frames += 1
+
+	if frames >= 60 then
+		print("Average update:", total / frames)
+
+		frames = 0
+		total = 0
+	end
 end)
 
 print("Spawn time:", os.clock() - start)
