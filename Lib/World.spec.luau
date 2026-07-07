@@ -2,6 +2,13 @@ local World = require(script.Parent.World)
 
 return function()
 	describe("World", function()
+		it("creates an empty world", function()
+			local world = World.new()
+
+			expect(world._archetypes).never.to.equal(nil)
+			expect(world._scheduler).never.to.equal(nil)
+		end)
+
 		it("spawns a valid entity", function()
 			local world = World.new()
 
@@ -175,6 +182,95 @@ return function()
 			expect(world:get(entity, 1)).to.equal(10)
 			expect(world:get(entity, 2)).to.equal(20)
 			expect(world:get(entity, 3)).to.equal(30)
+		end)
+
+		describe("Systems", function()
+			it("adds a system", function()
+				local world = World.new()
+
+				local system = {}
+
+				world:addSystem(system)
+
+				expect(#world._scheduler._systems).to.equal(1)
+
+				expect(world._scheduler._systems[1]).to.equal(system)
+			end)
+
+			it("adds multiple systems", function()
+				local world = World.new()
+
+				local systems = {
+					{},
+					{},
+					{},
+				}
+
+				world:addSystems(systems)
+
+				expect(#world._scheduler._systems).to.equal(3)
+			end)
+
+			it("starts system lifecycle", function()
+				local world = World.new()
+
+				local calls = {}
+
+				local system = {}
+
+				function system:PreInit()
+					table.insert(calls, "PreInit")
+				end
+
+				function system:Init()
+					table.insert(calls, "Init")
+				end
+
+				function system:Start()
+					table.insert(calls, "Start")
+				end
+
+				world:addSystem(system)
+
+				world:startSystems()
+
+				expect(calls[1]).to.equal("PreInit")
+				expect(calls[2]).to.equal("Init")
+				expect(calls[3]).to.equal("Start")
+			end)
+
+			it("updates systems", function()
+				local world = World.new()
+
+				local called = false
+
+				local system = {}
+
+				function system:Update(_, dt)
+					called = true
+
+					expect(dt).to.equal(1 / 60)
+				end
+
+				world:addSystem(system)
+
+				world:update(1 / 60)
+
+				expect(called).to.equal(true)
+			end)
+
+			it("keeps systems isolated between worlds", function()
+				local a = World.new()
+				local b = World.new()
+
+				local system = {}
+
+				a:addSystem(system)
+
+				expect(#a._scheduler._systems).to.equal(1)
+
+				expect(#b._scheduler._systems).to.equal(0)
+			end)
 		end)
 	end)
 end

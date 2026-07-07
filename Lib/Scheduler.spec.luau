@@ -6,12 +6,13 @@ return function()
 			local scheduler = Scheduler.new()
 
 			expect(#scheduler._systems).to.equal(0)
+			expect(#scheduler._updateSystems).to.equal(0)
 		end)
 
 		it("schedules a single system", function()
 			local scheduler = Scheduler.new()
 
-			local function system() end
+			local system = {}
 
 			scheduler:scheduleSystem(system)
 
@@ -22,11 +23,15 @@ return function()
 		it("schedules multiple systems", function()
 			local scheduler = Scheduler.new()
 
-			local function a() end
-			local function b() end
-			local function c() end
+			local a = {}
+			local b = {}
+			local c = {}
 
-			scheduler:scheduleSystems({ a, b, c })
+			scheduler:scheduleSystems({
+				a,
+				b,
+				c,
+			})
 
 			expect(#scheduler._systems).to.equal(3)
 		end)
@@ -34,21 +39,63 @@ return function()
 		it("does not schedule duplicates", function()
 			local scheduler = Scheduler.new()
 
-			local function system() end
+			local system = {}
 
 			scheduler:scheduleSystem(system)
 			scheduler:scheduleSystem(system)
-			scheduler:scheduleSystems({ system })
 
 			expect(#scheduler._systems).to.equal(1)
 		end)
 
-		it("runs function systems", function()
+		it("registers update systems", function()
+			local scheduler = Scheduler.new()
+
+			local system = {}
+
+			function system:Update() end
+
+			scheduler:scheduleSystem(system)
+
+			expect(#scheduler._updateSystems).to.equal(1)
+			expect(scheduler._updateSystems[1].system).to.equal(system)
+		end)
+
+		it("runs lifecycle hooks", function()
+			local scheduler = Scheduler.new()
+
+			local calls = {}
+
+			local system = {}
+
+			function system:PreInit()
+				table.insert(calls, "PreInit")
+			end
+
+			function system:Init()
+				table.insert(calls, "Init")
+			end
+
+			function system:Start()
+				table.insert(calls, "Start")
+			end
+
+			scheduler:scheduleSystem(system)
+
+			scheduler:initialize({})
+
+			expect(calls[1]).to.equal("PreInit")
+			expect(calls[2]).to.equal("Init")
+			expect(calls[3]).to.equal("Start")
+		end)
+
+		it("updates systems", function()
 			local scheduler = Scheduler.new()
 
 			local called = false
 
-			local function system(world, dt)
+			local system = {}
+
+			function system:Update(world, dt)
 				called = true
 
 				expect(world).to.equal("World")
@@ -56,43 +103,24 @@ return function()
 			end
 
 			scheduler:scheduleSystem(system)
-			scheduler:run("World", 1 / 60)
+
+			scheduler:update("World", 1 / 60)
 
 			expect(called).to.equal(true)
-		end)
-
-		it("runs callback table systems", function()
-			local scheduler = Scheduler.new()
-
-			local calls = 0
-
-			scheduler:scheduleSystem({
-				callbacks = {
-					function()
-						calls += 1
-					end,
-
-					function()
-						calls += 1
-					end,
-				},
-			})
-
-			scheduler:run({}, 0)
-
-			expect(calls).to.equal(2)
 		end)
 
 		it("increments execution count", function()
 			local scheduler = Scheduler.new()
 
-			local function system() end
+			local system = {}
+
+			function system:Update() end
 
 			scheduler:scheduleSystem(system)
 
-			scheduler:run({}, 0)
-			scheduler:run({}, 0)
-			scheduler:run({}, 0)
+			scheduler:update({}, 0)
+			scheduler:update({}, 0)
+			scheduler:update({}, 0)
 
 			local state = scheduler._systemState[system]
 
@@ -102,42 +130,49 @@ return function()
 		it("updates lastExecution", function()
 			local scheduler = Scheduler.new()
 
-			local function system() end
+			local system = {}
+
+			function system:Update() end
 
 			scheduler:scheduleSystem(system)
 
 			local before = os.clock()
 
-			scheduler:run({}, 0)
+			scheduler:update({}, 0)
 
 			local state = scheduler._systemState[system]
 
 			expect(state.lastExecution >= before).to.equal(true)
 		end)
 
-		it("disable prevents execution", function()
+		it("disable prevents update", function()
 			local scheduler = Scheduler.new()
 
 			local count = 0
 
-			local function system()
+			local system = {}
+
+			function system:Update()
 				count += 1
 			end
 
 			scheduler:scheduleSystem(system)
 
 			scheduler:disable(system)
-			scheduler:run({}, 0)
+
+			scheduler:update({}, 0)
 
 			expect(count).to.equal(0)
 		end)
 
-		it("enable resumes execution", function()
+		it("enable resumes update", function()
 			local scheduler = Scheduler.new()
 
 			local count = 0
 
-			local function system()
+			local system = {}
+
+			function system:Update()
 				count += 1
 			end
 
@@ -146,45 +181,59 @@ return function()
 			scheduler:disable(system)
 			scheduler:enable(system)
 
-			scheduler:run({}, 0)
+			scheduler:update({}, 0)
 
 			expect(count).to.equal(1)
 		end)
 
-		it("preserves scheduling order", function()
+		it("preserves update order", function()
 			local scheduler = Scheduler.new()
 
 			local order = {}
 
-			local function a()
+			local a = {}
+
+			function a:Update()
 				table.insert(order, "A")
 			end
 
-			local function b()
+			local b = {}
+
+			function b:Update()
 				table.insert(order, "B")
 			end
 
-			local function c()
+			local c = {}
+
+			function c:Update()
 				table.insert(order, "C")
 			end
 
-			scheduler:scheduleSystems({ a, b, c })
+			scheduler:scheduleSystems({
+				a,
+				b,
+				c,
+			})
 
-			scheduler:run({}, 0)
+			scheduler:update({}, 0)
 
 			expect(order[1]).to.equal("A")
 			expect(order[2]).to.equal("B")
 			expect(order[3]).to.equal("C")
 		end)
 
-		it("stores system names", function()
+		it("stores system state", function()
 			local scheduler = Scheduler.new()
 
-			local function TestSystem() end
+			local system = {}
 
-			scheduler:scheduleSystem(TestSystem)
+			scheduler:scheduleSystem(system)
 
-			expect(scheduler._systemNames[TestSystem]).never.to.equal(nil)
+			local state = scheduler._systemState[system]
+
+			expect(state).never.to.equal(nil)
+			expect(state.enabled).to.equal(true)
+			expect(state.executionCount).to.equal(0)
 		end)
 	end)
 end
