@@ -3,7 +3,7 @@
 registry = "test"
 
 [[package]]
-name = "pc-brasil/distributed-data-framework"
+name = "Loangostosão123"
 version = "0.1.0"
 dependencies = [["TestEZ", "roblox/testez@0.4.1"]]
 
