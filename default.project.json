@@ -1,5 +1,5 @@
 {
-  "name": "Demon Collapse",
+  "name": "KraftECS",
   "tree": {
     "$className": "DataModel",
 
@@ -9,6 +9,9 @@
       },
       "Packages": {
         "$path": "Packages"
+      },
+      "Lib": {
+        "$path": "Lib"
       }
     },
 

@@ -1,0 +1,10 @@
+{
+  "generator": {
+    "format": "RetainLines"
+  },
+  "rules": [
+    "compute_expression",
+    "remove_comments",
+    "standard_library_linking"
+  ]
+}

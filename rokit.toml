@@ -7,3 +7,6 @@
 rojo = "rojo-rbx/rojo@7.6.1"
 wally = "UpliftGames/wally@0.3.2"
 wally-package-types = "JohnnyMorganz/wally-package-types@1.6.2"
+darklua = "seaofvoices/darklua@0.19.0"
+pesde = "daimond113/pesde@0.7.3+registry.0.2.3"
+lune = "lune-org/lune@0.10.4"
