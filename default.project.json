@@ -12,6 +12,9 @@
       },
       "Lib": {
         "$path": "Lib"
+      },
+      "Example": {
+        "$path": "Example"
       }
     },
 

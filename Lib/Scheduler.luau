@@ -6,85 +6,94 @@ local Runtime = require(script.Parent.Runtime)
 local Scheduler = {}
 Scheduler.__index = Scheduler
 
-export type System = ((world: any, dt: number) -> ()) | {
-	callbacks: { (world: any, dt: number) -> () },
+export type System = {
+	PreInit: ((self: System, world: any) -> ())?,
+	Init: ((self: System, world: any) -> ())?,
+	Start: ((self: System, world: any) -> ())?,
+	Update: ((self: System, world: any, dt: number) -> ())?,
+}
+
+type UpdateNode = {
+	system: System,
+	callback: (self: System, world: any, dt: number) -> (),
 }
 
 type ExecutionNode = {
 	system: System,
-	hookStorage: {},
-}
+	name: string,
 
-local function getName(fn)
-	return debug.info(fn, "n") or "<anonymous>"
-end
+	hookStorage: { [string]: any },
+
+	executionCount: number,
+	lastExecution: number,
+
+	enabled: boolean,
+}
 
 function Scheduler.new()
 	return setmetatable({
+
 		_systems = {},
-		_systemNames = {},
+
+		_registered = {},
+
 		_systemState = {},
+
+		_updateSystems = {},
 	}, Scheduler)
 end
 
 export type Scheduler = typeof(Scheduler.new())
 
-function Scheduler:scheduleSystems(systems: { System })
-	for _, system in ipairs(systems) do
-		if table.find(self._systems, system) then
-			continue
-		end
-
-		table.insert(self._systems, system)
-
-		self._systemNames[system] = typeof(system) == "function" and getName(system)
-
-		self._systemState[system] = {
-			system = system,
-
-			name = self._systemNames[system],
-
-			hookStorage = {},
-
-			executionCount = 0,
-
-			lastExecution = 0,
-
-			enabled = true,
-		}
-	end
-end
-
 function Scheduler:scheduleSystem(system: System)
-	self:scheduleSystems({ system })
-end
-
-function Scheduler:disable(system)
-	if not self._systemState[system] then
+	if self._registered[system] then
 		return
 	end
 
-	self._systemState[system].enabled = false
+	self._registered[system] = true
+
+	table.insert(self._systems, system)
+
+	self._systemState[system] = {
+
+		system = system,
+
+		name = tostring(system),
+
+		hookStorage = {},
+
+		executionCount = 0,
+
+		lastExecution = 0,
+
+		enabled = true,
+	}
+
+	if system.Update then
+		table.insert(self._updateSystems, {
+			system = system,
+			callback = system.Update,
+		})
+	end
 end
 
-function Scheduler:enable(system)
-	local state = self._systemState[system]
-
-	if not state then
-		return
+function Scheduler:initialize(world: any)
+	for _, system in self._systems do
+		if system.PreInit then
+			system:PreInit(world)
+		end
 	end
 
-	state.enabled = true
-end
-
-local function invoke(system: System, ...)
-	if typeof(system) == "function" then
-		system(...)
-		return
+	for _, system in self._systems do
+		if system.Init then
+			system:Init(world)
+		end
 	end
 
-	for _, callback in ipairs(system.callbacks) do
-		callback(...)
+	for _, system in self._systems do
+		if system.Start then
+			system:Start(world)
+		end
 	end
 end
 
@@ -99,7 +108,8 @@ function Scheduler:update(world: any, dt: number)
 		state.executionCount += 1
 		state.lastExecution = os.clock()
 
-			invoke(system, world, dt)
+		Runtime:start(state, function()
+			node.callback(node.system, world, dt)
 		end)
 	end
 end

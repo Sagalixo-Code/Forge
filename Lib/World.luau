@@ -6,6 +6,7 @@ local Signature = require(script.Parent.Signature)
 local Archetype = require(script.Parent.Archetype)
 local CommandBuffer = require(script.Parent.CommandBuffer)
 local QueryResult = require(script.Parent.QueryResult)
+local Scheduler = require(script.Parent.Scheduler)
 
 local World = {}
 World.__index = World
@@ -15,6 +16,8 @@ export type ComponentId = Archetype.ComponentId
 export type ArchetypeClass = Archetype.Archetype
 
 type Location = { archetype: ArchetypeClass, row: number }
+
+export type Scheduler = typeof(Scheduler.new())
 
 function World.new()
 	return setmetatable({
@@ -30,6 +33,8 @@ function World.new()
 		_commandBuffer = CommandBuffer.new(),
 
 		_changedListeners = {} :: { [ComponentId]: { (EntityId, any) -> () } },
+
+		_scheduler = Scheduler.new() :: Scheduler,
 	}, World)
 end
 
@@ -287,6 +292,22 @@ end
 
 function World:setDeferred(enabled: boolean)
 	self._commandBuffer.deferring = enabled
+end
+
+function World:addSystem(system: Scheduler.System)
+	self._scheduler:scheduleSystem(system)
+end
+
+function World:addSystems(systems: { Scheduler.System })
+	self._scheduler:scheduleSystems(systems)
+end
+
+function World:startSystems()
+	self._scheduler:initialize(self)
+end
+
+function World:update(dt: number)
+	self._scheduler:update(self, dt)
 end
 
 return World
