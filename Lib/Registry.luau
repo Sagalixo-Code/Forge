@@ -42,9 +42,9 @@ for _, stage in Flags.Stages do
 end
 
 local function register(kind: Kind, name: string, object: { [string]: any }): number
-	assert(typeof(name) == "string" and name ~= "", "Nome deve ser uma string nao vazia")
-	assert(typeof(object) == "table", "O service/controller deve ser uma tabela")
-	assert(not Registry._nameToId[kind][name], `'{name}' ja foi registrado como {kind}`)
+	assert(typeof(name) == "string" and name ~= "", "Name must be a non-empty string.")
+	assert(typeof(object) == "table", "The service/controller must be a table.")
+	assert(not Registry._nameToId[kind][name], `'{name}' has been registered at {kind}`)
 
 	local id = Registry._count[kind] + 1
 	Registry._count[kind] = id
