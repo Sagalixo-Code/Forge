@@ -1,5 +1,5 @@
 {
-  "name": "KraftECS",
+  "name": "Forge",
   "tree": {
     "$className": "DataModel",
 
@@ -18,9 +18,6 @@
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
-      },
-      "Example": {
-        "$path": "Example"
       }
     },
 

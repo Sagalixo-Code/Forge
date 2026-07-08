@@ -1,128 +1,181 @@
 --!strict
---!optimize 2
 
-export type StackFrame = {
-	node: any,
-	parent: StackFrame?,
-	accessedKeys: {
-		[any]: {
-			[any]: true,
-		},
-	},
-	hookIndex: number,
-	depth: number,
+local Players = game:GetService("Players")
+
+local Result = require(script.Parent.Result)
+
+local pcall = pcall
+local warn = warn
+local tostring = tostring
+
+export type Stage =
+	"PreInit"
+	| "Init"
+	| "PostInit"
+	| "PreStart"
+	| "Start"
+	| "PostStart"
+	| "Shutdown"
+	| "PlayerAdded"
+	| "PlayerRemoving"
+	| "CharacterAdded"
+	| "CharacterRemoving"
+
+type Callback = (...any) -> ()
+
+type Registry = {
+	getStageCallbacks: (self: Registry, stage: Stage) -> { Callback },
+}
+
+type Components = {
+	[string]: any,
+}
+
+type CharacterConnections = {
+	[Player]: RBXScriptConnection,
+}
+
+local INIT_STAGES: { Stage } = {
+	"PreInit",
+	"Init",
+	"PostInit",
 }
 
 local Runtime = {}
-Runtime._stack = {} :: { StackFrame }
+Runtime.__index = Runtime
 
-local function newStackFrame(node: any): StackFrame
-	local parent = Runtime:current()
+export type Runtime = {
+	_registry: Registry,
+	_components: Components,
+	_characterConnections: CharacterConnections,
+}
 
-	node.hookStorage = node.hookStorage or {}
-
-	return {
-		node = node,
-		parent = parent,
-		accessedKeys = {},
-		hookIndex = 0,
-		depth = #Runtime._stack + 1,
-	}
+function Runtime.new(registry: Registry, components: Components): Runtime
+	return setmetatable({
+		_registry = registry,
+		_components = components,
+		_characterConnections = {} :: CharacterConnections,
+	}, Runtime) :: any
 end
 
-function Runtime:push(node: any): StackFrame
-	local frame = newStackFrame(node)
+local function runStageSync(self: Runtime, stage: Stage, ...: any)
+	local callbacks = self._registry:getStageCallbacks(stage)
+	local errors: { string } = {}
+	local ran = 0
 
-	self._stack[#self._stack + 1] = frame
+	for i = 1, #callbacks do
+		local callback = callbacks[i]
 
-	return frame
-end
-
-function Runtime:pop(): StackFrame?
-	local stack = self._stack
-	local frame = stack[#stack]
-
-	if frame then
-		stack[#stack] = nil
-	end
-
-	return frame
-end
-
-function Runtime:current(): StackFrame?
-	return self._stack[#self._stack]
-end
-
-function Runtime:isRunning(): boolean
-	return #self._stack > 0
-end
-
-function Runtime:depth(): number
-	return #self._stack
-end
-
-function Runtime:nextHookIndex(): number
-	local frame = self:current()
-
-	assert(frame, "No active runtime.")
-
-	frame.hookIndex += 1
-
-	return frame.hookIndex
-end
-
-function Runtime:markAccess(baseKey: any, key: any)
-	local frame = self:current()
-
-	if not frame then
-		return
-	end
-
-	local accessed = frame.accessedKeys[baseKey]
-
-	if not accessed then
-		accessed = {}
-		frame.accessedKeys[baseKey] = accessed
-	end
-
-	accessed[key] = true
-end
-
-function Runtime:cleanup(frame: StackFrame)
-	local hookStorage = frame.node.hookStorage
-
-	for baseKey, state in pairs(hookStorage) do
-		local accessed = frame.accessedKeys[baseKey]
-
-		for key, value in pairs(state.storage) do
-			if accessed and accessed[key] then
-				continue
-			end
-
-			local cleanupCallback = state.cleanupCallback
-
-			if cleanupCallback and cleanupCallback(value) then
-				continue
-			end
-
-			state.storage[key] = nil
+		local ok, err = pcall(callback, ...)
+		if ok then
+			ran += 1
+		else
+			errors[#errors + 1] = `[{stage}] {tostring(err)}`
 		end
 	end
-end
 
-function Runtime:start(node: string?, callback: () -> ...any)
-	local frame = self:push(node)
-
-	local ok, result = xpcall(callback, debug.traceback)
-
-	self:cleanup(frame)
-	self:pop()
-
-	if not ok then
-		error(result, 0)
+	if #errors > 0 then
+		return Result.err(errors)
 	end
 
-	return frame
+	return Result.ok(ran)
+end
+
+local function runStageAsync(self: Runtime, stage: Stage, ...: any)
+	local callbacks = self._registry:getStageCallbacks(stage)
+	local args = { ... }
+
+	for i = 1, #callbacks do
+		local callback = callbacks[i]
+
+		task.spawn(function()
+			local ok, err = pcall(callback, table.unpack(args))
+			if not ok then
+				warn(`[Forge] Erro em {stage}: {tostring(err)}`)
+			end
+		end)
+	end
+end
+
+function Runtime:run(stage: Stage, async: boolean, ...: any)
+	if async then
+		runStageAsync(self, stage, ...)
+		return Result.ok(true)
+	end
+
+	return runStageSync(self, stage, ...)
+end
+
+function Runtime:init()
+	local allErrors: { string } = {}
+
+	for _, stage in INIT_STAGES do
+		local result = self:run(stage, false)
+
+		if result:isErr() then
+			for _, err in result:unwrapOr({}) do
+				allErrors[#allErrors + 1] = err
+			end
+		end
+	end
+
+	if #allErrors > 0 then
+		return Result.err(allErrors)
+	end
+
+	return Result.ok(true)
+end
+
+function Runtime:start()
+	local errors: { string } = {}
+
+	local preResult = self:run("PreStart", false)
+	if preResult:isErr() then
+		errors = preResult:unwrapOr({})
+	end
+
+	self:run("Start", true, self._components)
+
+	local postResult = self:run("PostStart", false)
+	if postResult:isErr() then
+		for _, err in postResult:unwrapOr({}) do
+			errors[#errors + 1] = err
+		end
+	end
+
+	if #errors > 0 then
+		return Result.err(errors)
+	end
+
+	return Result.ok(true)
+end
+
+function Runtime:shutdown()
+	return self:run("Shutdown", false)
+end
+
+function Runtime:bindPlayerLifecycle()
+	Players.PlayerAdded:Connect(function(player: Player)
+		self:run("PlayerAdded", true, player, self._components)
+
+		self._characterConnections[player] = player.CharacterAdded:Connect(function(character: Model)
+			self:run("CharacterAdded", true, player, character, self._components)
+		end)
+
+		player.CharacterRemoving:Connect(function(character: Model)
+			self:run("CharacterRemoving", true, player, character, self._components)
+		end)
+	end)
+
+	Players.PlayerRemoving:Connect(function(player: Player)
+		self:run("PlayerRemoving", true, player, self._components)
+
+		local connection = self._characterConnections[player]
+		if connection then
+			connection:Disconnect()
+			self._characterConnections[player] = nil
+		end
+	end)
 end
 
 return Runtime
