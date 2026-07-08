@@ -1,3 +1,6 @@
+--!strict
+--!optimize 2
+
 local RunService = game:GetService("RunService")
 local Registry = require(script.Parent.Registry)
 local Runtime = require(script.Parent.Runtime)
@@ -90,8 +93,8 @@ function Forge:bootstrap(container: Folder, components: Component)
 		self._components.client = components
 	end
 
-	for _, moduleScript in ipairs(container:GetDescendants()) do
-		if moduleScript:IsA("ModuleScript") and moduleScript.Parent.Name ~= "Internal" then
+	for _, moduleScript: Instance in ipairs(container:GetDescendants()) do
+		if moduleScript.Parent and moduleScript:IsA("ModuleScript") and moduleScript.Parent.Name ~= "Internal" then
 			local ok, factory = pcall(require, moduleScript)
 
 			if ok and typeof(factory) == "function" then
