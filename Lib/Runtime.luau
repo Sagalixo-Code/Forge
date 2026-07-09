@@ -1,12 +1,15 @@
 --!strict
+--!optimize 2
 
 local Players = game:GetService("Players")
 
+local Flags = require(script.Parent.Flags)
 local Result = require(script.Parent.Result)
 
 local pcall = pcall
 local warn = warn
 local tostring = tostring
+local select = select
 
 export type Stage =
 	"PreInit"
@@ -35,7 +38,13 @@ type CharacterConnections = {
 	[Player]: RBXScriptConnection,
 }
 
-local INIT_STAGES: { Stage } = {
+type PluginManager = {
+	dispatch: (self: PluginManager, hookName: string, ...any) -> (),
+	hasStageMiddleware: (self: PluginManager) -> boolean,
+	wrapStage: (self: PluginManager, stage: string, finalFn: (string, ...any) -> any, ...any) -> any,
+}
+
+local START_STAGES: { Stage } = {
 	"PreInit",
 	"Init",
 	"PostInit",
@@ -48,33 +57,45 @@ export type Runtime = {
 	_registry: Registry,
 	_components: Components,
 	_characterConnections: CharacterConnections,
+	_plugins: PluginManager?,
 }
 
-function Runtime.new(registry: Registry, components: Components): Runtime
+function Runtime.new(registry: Registry, components: Components, plugins: PluginManager?): Runtime
 	return setmetatable({
 		_registry = registry,
 		_components = components,
 		_characterConnections = {} :: CharacterConnections,
+		_plugins = plugins,
 	}, Runtime) :: any
 end
 
 local function runStageSync(self: Runtime, stage: Stage, ...: any)
 	local callbacks = self._registry:getStageCallbacks(stage)
-	local errors: { string } = {}
+	local total = #callbacks
+
+	if total == 0 then
+		return Result.ok(0)
+	end
+
+	local errors: { string }? = nil
 	local ran = 0
 
-	for i = 1, #callbacks do
-		local callback = callbacks[i]
+	for i = 1, total do
+		local ok, err = pcall(callbacks[i], ...)
 
-		local ok, err = pcall(callback, ...)
 		if ok then
 			ran += 1
 		else
-			errors[#errors + 1] = `[{stage}] {tostring(err)}`
+			if not errors then
+				errors = {}
+			end
+
+			local list = errors :: { string }
+			list[#list + 1] = `[{stage}] {tostring(err)}`
 		end
 	end
 
-	if #errors > 0 then
+	if errors then
 		return Result.err(errors)
 	end
 
@@ -83,13 +104,36 @@ end
 
 local function runStageAsync(self: Runtime, stage: Stage, ...: any)
 	local callbacks = self._registry:getStageCallbacks(stage)
-	local args = { ... }
+	local total = #callbacks
 
-	for i = 1, #callbacks do
+	if total == 0 then
+		return
+	end
+
+	local n = select("#", ...)
+
+	if n == 0 then
+		for i = 1, total do
+			local callback = callbacks[i]
+
+			task.spawn(function()
+				local ok, err = pcall(callback)
+				if not ok then
+					warn(`[Forge] Erro em {stage}: {tostring(err)}`)
+				end
+			end)
+		end
+
+		return
+	end
+
+	local args = table.pack(...)
+
+	for i = 1, total do
 		local callback = callbacks[i]
 
 		task.spawn(function()
-			local ok, err = pcall(callback, table.unpack(args))
+			local ok, err = pcall(callback, table.unpack(args, 1, args.n))
 			if not ok then
 				warn(`[Forge] Erro em {stage}: {tostring(err)}`)
 			end
@@ -98,18 +142,51 @@ local function runStageAsync(self: Runtime, stage: Stage, ...: any)
 end
 
 function Runtime:run(stage: Stage, async: boolean, ...: any)
-	if async then
-		runStageAsync(self, stage, ...)
-		return Result.ok(true)
+	assert(Flags.ByName[stage] ~= nil, `[Forge] Unknown lifecycle stage '{stage}'`)
+
+	local plugins = self._plugins
+
+	if plugins then
+		plugins:dispatch("onStageStart", stage)
 	end
 
-	return runStageSync(self, stage, ...)
+	local result
+
+	if plugins and plugins:hasStageMiddleware() then
+		local function execute(innerStage: Stage, ...: any)
+			if async then
+				runStageAsync(self, innerStage, ...)
+				return Result.ok(true)
+			end
+			return runStageSync(self, innerStage, ...)
+		end
+
+		local ok, res = pcall(plugins.wrapStage, plugins, stage, execute, ...)
+
+		if ok then
+			result = res
+		else
+			warn(`[Forge] stageMiddleware chain errored for '{stage}': {tostring(res)}`)
+			result = execute(stage, ...)
+		end
+	elseif async then
+		runStageAsync(self, stage, ...)
+		result = Result.ok(true)
+	else
+		result = runStageSync(self, stage, ...)
+	end
+
+	if plugins then
+		plugins:dispatch("onStageComplete", stage, result)
+	end
+
+	return result
 end
 
 function Runtime:init()
 	local allErrors: { string } = {}
 
-	for _, stage in INIT_STAGES do
+	for _, stage in START_STAGES do
 		local result = self:run(stage, false)
 
 		if result:isErr() then
@@ -151,13 +228,7 @@ function Runtime:start()
 end
 
 function Runtime:shutdown()
-	game:BindToClose(function()
-		local result = self:run("Shutdown", false)
-
-		if result:isErr() then
-			warn(table.concat(result:unwrapOr({}), "\n"))
-		end
-	end)
+	return self:run("Shutdown", false)
 end
 
 function Runtime:bindPlayerLifecycle()
