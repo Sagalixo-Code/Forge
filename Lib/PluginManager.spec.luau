@@ -59,7 +59,7 @@ return function()
 				},
 			})
 
-			local result = manager:Dispatch("onInit")
+			local result = manager:dispatch("onInit")
 
 			expect(result.ok).to.equal(true)
 			expect(executed).to.equal(true)
@@ -82,7 +82,7 @@ return function()
 				},
 			})
 
-			manager:Dispatch("onStart", 123)
+			manager:dispatch("onStart", 123)
 
 			expect(receivedValue).to.equal(123)
 		end)
@@ -126,7 +126,7 @@ return function()
 				end,
 			})
 
-			manager:RunStage("Init", function()
+			manager:wrapStage("Init", function()
 				table.insert(order, "Stage")
 
 				return {
@@ -156,7 +156,7 @@ return function()
 				},
 			})
 
-			local result = manager:Dispatch("onInit")
+			local result = manager:dispatch("onInit")
 
 			expect(result.ok).to.equal(false)
 		end)
