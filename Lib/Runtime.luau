@@ -6,11 +6,6 @@ local Players = game:GetService("Players")
 local Flags = require(script.Parent.Flags)
 local Result = require(script.Parent.Result)
 
-local pcall = pcall
-local warn = warn
-local tostring = tostring
-local select = select
-
 export type Stage =
 	"PreInit"
 	| "Init"
@@ -53,24 +48,19 @@ local START_STAGES: { Stage } = {
 local Runtime = {}
 Runtime.__index = Runtime
 
-export type Runtime = {
-	_registry: Registry,
-	_components: Components,
-	_characterConnections: CharacterConnections,
-	_plugins: PluginManager?,
-}
-
-function Runtime.new(registry: Registry, components: Components, plugins: PluginManager?): Runtime
+function Runtime.new(registry: Registry, components: Components, plugins: PluginManager?)
 	return setmetatable({
 		_registry = registry,
 		_components = components,
 		_characterConnections = {} :: CharacterConnections,
 		_plugins = plugins,
-	}, Runtime) :: any
+	}, Runtime)
 end
 
-local function runStageSync(self: Runtime, stage: Stage, ...: any)
-	local callbacks = self._registry:getStageCallbacks(stage)
+export type Runtime = typeof(Runtime.new({} :: Registry, {} :: Components, nil :: PluginManager?))
+
+local function runStageSync(runtime: Runtime, stage: Stage, ...: any)
+	local callbacks = runtime._registry:getStageCallbacks(stage)
 	local total = #callbacks
 
 	if total == 0 then
@@ -102,8 +92,8 @@ local function runStageSync(self: Runtime, stage: Stage, ...: any)
 	return Result.ok(ran)
 end
 
-local function runStageAsync(self: Runtime, stage: Stage, ...: any)
-	local callbacks = self._registry:getStageCallbacks(stage)
+local function runStageAsync(runtime: Runtime, stage: Stage, ...: any)
+	local callbacks = runtime._registry:getStageCallbacks(stage)
 	local total = #callbacks
 
 	if total == 0 then

@@ -45,7 +45,7 @@ end
 local function safeCall<T>(name: string, stageName: string, fn: (...T) -> T, ...: T)
 	local ok, err = pcall(fn, ...)
 	if not ok then
-		warn(string.format("[Forge] Erro em %s de '%s': %s", stageName, name, tostring(err)))
+		warn(string.format("[Forge] Error in %s of '%s': %s", stageName, name, tostring(err)))
 	end
 end
 
