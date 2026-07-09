@@ -151,7 +151,13 @@ function Runtime:start()
 end
 
 function Runtime:shutdown()
-	return self:run("Shutdown", false)
+	game:BindToClose(function()
+		local result = self:run("Shutdown", false)
+
+		if result:isErr() then
+			warn(table.concat(result:unwrapOr({}), "\n"))
+		end
+	end)
 end
 
 function Runtime:bindPlayerLifecycle()

@@ -34,6 +34,17 @@ export type systems = {
 	["LateUpdate"]: (dt: number, Component) -> ()?,
 }
 
+export type ModuleLoadFailure = {
+	name: string,
+	path: string,
+	error: string,
+}
+
+export type ModuleLoadResult = {
+	loaded: number,
+	failed: { ModuleLoadFailure },
+}
+
 local IsServer = RunService:IsServer()
 
 local _callbacksReceived = {
@@ -66,8 +77,6 @@ end
 
 export type Forge = typeof(Forge.new())
 
--- // Private
-
 -- // Public
 
 function Forge:getComponents(): Component
@@ -86,6 +95,39 @@ function Forge:setController(controllerName: string, controller: ServiceAndContr
 	self._registry:registerController(controllerName, controller)
 end
 
+function Forge:loadModules(container: Folder): ModuleLoadResult
+	local result: ModuleLoadResult = {
+		loaded = 0,
+		failed = {},
+	}
+
+	for _, moduleScript: Instance in ipairs(container:GetDescendants()) do
+		if moduleScript.Parent and moduleScript:IsA("ModuleScript") and moduleScript.Parent.Name ~= "Internal" then
+			local ok, factoryOrErr = pcall(require, moduleScript)
+
+			if ok then
+				local factory: ServiceAndController = factoryOrErr
+
+				if IsServer then
+					self:setService(moduleScript.Name, factory)
+				else
+					self:setController(moduleScript.Name, factory)
+				end
+
+				result.loaded += 1
+			else
+				table.insert(result.failed, {
+					name = moduleScript.Name,
+					path = moduleScript:GetFullName(),
+					error = tostring(factoryOrErr),
+				})
+			end
+		end
+	end
+
+	return result
+end
+
 function Forge:bootstrap(container: Folder, components: Component)
 	if IsServer then
 		self._components.server = components
@@ -93,19 +135,13 @@ function Forge:bootstrap(container: Folder, components: Component)
 		self._components.client = components
 	end
 
-	for _, moduleScript: Instance in ipairs(container:GetDescendants()) do
-		if moduleScript.Parent and moduleScript:IsA("ModuleScript") and moduleScript.Parent.Name ~= "Internal" then
-			local ok, factory = pcall(require, moduleScript)
+	local loadResult = self:loadModules(container)
 
-			if ok and typeof(factory) == "function" then
-				local object = factory()
-
-				if IsServer then
-					self:setService(moduleScript.Name, object)
-				else
-					self:setController(moduleScript.Name, object)
-				end
-			end
+	if #loadResult.failed > 0 then
+		for _, failure in ipairs(loadResult.failed) do
+			warn(
+				string.format("[Forge] Failed to load module '%s' (%s): %s", failure.name, failure.path, failure.error)
+			)
 		end
 	end
 

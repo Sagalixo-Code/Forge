@@ -123,4 +123,37 @@ function Registry:countImplementing(kind: Kind, bit: number): number
 	return n
 end
 
+function Registry:reset()
+	self._names = {
+		service = {},
+		controller = {},
+	}
+
+	self._nameToId = {
+		service = {},
+		controller = {},
+	}
+
+	self._objects = {
+		service = {},
+		controller = {},
+	}
+
+	self._count = {
+		service = 0,
+		controller = 0,
+	}
+
+	self._flagBuffers = {
+		service = newFlagBuffer(INITIAL_CAPACITY),
+		controller = newFlagBuffer(INITIAL_CAPACITY),
+	}
+
+	self._stageCallbacks = {}
+
+	for _, stage in Flags.Stages do
+		self._stageCallbacks[stage] = {}
+	end
+end
+
 return Registry

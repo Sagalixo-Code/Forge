@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Forge = require(ReplicatedStorage.Lib.ForgeInit)
+local ExampleService = ReplicatedStorage.Shared.Tests.ExampleService
 
 return function()
 	describe("Forge", function()
@@ -14,26 +15,14 @@ return function()
 		it("should expose components table", function()
 			local forge = Forge.new()
 
-			local components = forge:getComponents()
-
-			expect(type(components)).to.equal("table")
+			expect(type(forge:getComponents())).to.equal("table")
 		end)
 
 		it("should bootstrap services", function()
 			local forge = Forge.new()
 
 			local folder = Instance.new("Folder")
-
-			local module = Instance.new("ModuleScript")
-			module.Name = "ExampleService"
-			module.Source = [[
-				return function()
-					return {
-						Init = function() end
-					}
-				end
-			]]
-			module.Parent = folder
+			ExampleService:Clone().Parent = folder
 
 			forge:bootstrap(folder, {})
 
@@ -52,6 +41,8 @@ return function()
 			local forge = Forge.new()
 
 			local services = Instance.new("Folder")
+			ExampleService:Clone().Parent = services
+
 			local systems = Instance.new("Folder")
 
 			forge:bootstrap(services, {})
