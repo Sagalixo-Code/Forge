@@ -2,6 +2,7 @@
 --!optimize 2
 
 local RunService = game:GetService("RunService")
+local PluginManager = require(script.Parent.PluginManager)
 local Registry = require(script.Parent.Registry)
 local Runtime = require(script.Parent.Runtime)
 local SystemRunner = require(script.Parent.SystemRunner)
@@ -68,6 +69,7 @@ function Forge.new()
 
 		_registry = Registry,
 		_runtime = nil,
+		_pluginManager = PluginManager.new(),
 	}, Forge)
 
 	return self
@@ -143,10 +145,10 @@ function Forge:bootstrap(container: Folder, components: Component)
 		end
 	end
 
-	self._runtime = Runtime.new(self._registry, self:getComponents())
+	self._runtime = Runtime.new(self._registry, self:getComponents(), self._pluginManager)
 end
 
-function Forge:run(systems: Folder?)
+function Forge:run(systems: Folder)
 	assert(self._runtime, "Forge must be bootstrapped before running.")
 
 	local initResult = self._runtime:init()
@@ -165,7 +167,7 @@ function Forge:run(systems: Folder?)
 		self._runtime:bindPlayerLifecycle()
 	end
 
-	SystemRunner.new(systems, self:getComponents()):start():update()
+	SystemRunner.new(systems, self:getComponents(), self._pluginManager):start():update()
 end
 
 return Forge
