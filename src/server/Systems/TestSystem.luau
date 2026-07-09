@@ -5,6 +5,6 @@ return {
 	end,
 
 	Update = function(dt: number, components: any)
-		print(dt)
+		-- print(dt)
 	end,
 }

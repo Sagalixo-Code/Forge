@@ -67,7 +67,7 @@ function PluginManager:Register(plugin: Plugin): Result.Result<Plugin, string>
 	self._plugins[plugin.Name] = plugin
 
 	if plugin.Middleware then
-		table.insert(self._middlewares, plugin.Middleware)
+		self._middlewares[#self._middlewares + 1] = plugin.Middleware
 	end
 
 	for hook, callback in plugin.Hooks do
@@ -80,7 +80,7 @@ function PluginManager:Register(plugin: Plugin): Result.Result<Plugin, string>
 				self._hooks[hook] = hooks
 			end
 
-			table.insert(hooks, callback)
+			hooks[#hooks + 1] = callback
 		end
 	end
 
