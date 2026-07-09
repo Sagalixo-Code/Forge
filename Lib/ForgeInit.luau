@@ -8,7 +8,6 @@ local SystemRunner = require(script.Parent.SystemRunner)
 
 local Forge = {}
 Forge.__index = Forge
-Forge.__mode = "k"
 
 export type Component = {
 	[string]: any,
@@ -31,7 +30,6 @@ export type ServiceAndController = {
 export type systems = {
 	["Start"]: (Component) -> ()?,
 	["Update"]: (dt: number, Component) -> ()?,
-	["LateUpdate"]: (dt: number, Component) -> ()?,
 }
 
 export type ModuleLoadFailure = {
