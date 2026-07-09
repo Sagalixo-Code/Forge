@@ -43,28 +43,6 @@ export type Plugin = {
 	Middleware: Middleware?,
 }
 
-export type PluginManager = {
-
-	_plugins: { [string]: Plugin },
-
-	_hooks: { [PluginHook]: { (...any) -> () } },
-
-	_middlewares: { Middleware },
-
-	Register: (self: PluginManager, plugin: Plugin) -> Result.Result<Plugin, string>,
-
-	Dispatch: (self: PluginManager, hook: PluginHook, ...any) -> Result.Result<number, string>,
-
-	HasStageMiddleware: (self: PluginManager) -> boolean,
-
-	RunStage: (
-		self: PluginManager,
-		stage: Stage,
-		callback: (stage: Stage, ...any) -> Result.Result<any, string>,
-		...any
-	) -> Result.Result<any, string>,
-}
-
 local PluginManager = {}
 PluginManager.__index = PluginManager
 
@@ -78,6 +56,8 @@ function PluginManager.new()
 		_middlewares = {},
 	}, PluginManager)
 end
+
+export type PluginManager = typeof(PluginManager.new())
 
 function PluginManager:Register(plugin: Plugin): Result.Result<Plugin, string>
 	if self._plugins[plugin.Name] then
@@ -117,7 +97,7 @@ function PluginManager:Register(plugin: Plugin): Result.Result<Plugin, string>
 	return Result.ok(plugin)
 end
 
-function PluginManager:Dispatch(hook: PluginHook, ...: any): Result.Result<number, string>
+function PluginManager:dispatch(hook: PluginHook, ...: any): Result.Result<number, string>
 	local callbacks = self._hooks[hook]
 
 	if not callbacks then
@@ -139,11 +119,11 @@ function PluginManager:Dispatch(hook: PluginHook, ...: any): Result.Result<numbe
 	return Result.ok(executed)
 end
 
-function PluginManager:HasStageMiddleware(): boolean
+function PluginManager:hasStageMiddleware(): boolean
 	return #self._middlewares > 0
 end
 
-function PluginManager:RunStage(
+function PluginManager:wrapStage(
 	stage: Stage,
 	callback: (stage: Stage, ...any) -> Result.Result<any, string>,
 	...: any
