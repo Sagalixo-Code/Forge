@@ -57,3 +57,9 @@ end
 
 return ExampleService
 ```
+
+## Example Internal
+
+```lua
+
+```
