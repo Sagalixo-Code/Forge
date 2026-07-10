@@ -1,3 +1,5 @@
+Forge is a modern Roblox framework inspired by the architecture of Rust, Bevy, ASP.NET Core, and other infrastructure-focused frameworks. Rather than abstracting Roblox APIs, it provides a predictable lifecycle, modular architecture, and type-safe foundation for building scalable and maintainable experiences.
+
 ## Example Bootstrap
 
 ```lua
