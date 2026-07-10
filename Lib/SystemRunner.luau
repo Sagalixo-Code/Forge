@@ -4,10 +4,6 @@
 local RunService = game:GetService("RunService")
 local Validate = require(script.Parent.Validate)
 
-local pcall = pcall
-local warn = warn
-local tostring = tostring
-
 export type Component = { [string]: any }
 export type SystemModule = {
 	Priority: number?,
