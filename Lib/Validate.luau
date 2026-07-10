@@ -2,13 +2,13 @@ local Validate = {}
 
 function Validate.system(name: string, module: any)
 	local errors = {}
-	if type(module) ~= "table" then
+	if typeof(module) ~= "table" then
 		table.insert(errors, "Module must be a table")
 	else
-		if module.Start and type(module.Start) ~= "function" then
+		if module.Start and typeof(module.Start) ~= "function" then
 			table.insert(errors, "Start must be a function")
 		end
-		if module.Update and type(module.Update) ~= "function" then
+		if module.Update and typeof(module.Update) ~= "function" then
 			table.insert(errors, "Update must be a function")
 		end
 	end
