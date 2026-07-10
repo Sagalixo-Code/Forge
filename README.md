@@ -15,3 +15,45 @@ Forge:bootstrap(script.Services, Components)
 Forge:run(script.Systems)
 ```
 
+## Example Service
+
+```lua
+local ExampleService = {}
+
+local Internal = script.Parent:WaitForChild("Internal")
+local ExampleInternal = require(Internal:WaitForChild("ExampleInternal"))
+
+function ExampleService:PreInit(Component)
+	ExampleInternal:ExampleFunction("PreInit")
+end
+
+function ExampleService:Init(Component)
+	ExampleInternal:ExampleFunction("Init")
+end
+
+function ExampleService:PostInit(Component)
+	ExampleInternal:ExampleFunction("PostInit")
+end
+
+function ExampleService:PlayerAdded(Player, Component)
+	ExampleInternal:ExampleFunction("PlayerAdded")
+end
+
+function ExampleService:PlayerRemoving(Player, Component)
+	ExampleInternal:ExampleFunction("PlayerRemoving")
+end
+
+function ExampleService:CharacterAdded(Player, Character, Component)
+	ExampleInternal:ExampleFunction("CharacterAdded")
+end
+
+function ExampleService:CharacterRemoving(Player, Character, Component)
+	ExampleInternal:ExampleFunction("CharacterRemoving")
+end
+
+function ExampleService:Shutdown(Component)
+	ExampleInternal:ExampleFunction("Shutdown")
+end
+
+return ExampleService
+```
