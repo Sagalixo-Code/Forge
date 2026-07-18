@@ -77,8 +77,6 @@ end
 
 export type Forge = typeof(Forge.new())
 
--- // Public
-
 function Forge:getComponents(): Component
 	if IsServer then
 		return self._components.server
